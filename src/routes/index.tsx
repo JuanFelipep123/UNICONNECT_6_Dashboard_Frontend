@@ -1,4 +1,5 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
 import { DashboardLayout } from '@shared/components/layout/DashboardLayout';
 import { useAuthStore } from '@shared/store/authStore';
 import { LoginPage } from '@features/auth/presentation/pages/LoginPage';
@@ -8,15 +9,14 @@ import { GroupDetailPage } from '@features/groups/presentation/pages/GroupDetail
 import { CreateGroupPage } from '@features/groups/presentation/pages/CreateGroupPage';
 
 function ProtectedLayout() {
+  const { isLoading: auth0Loading, isAuthenticated } = useAuth0();
   const isHydrating = useAuthStore((state) => state.isHydrating);
-  const userId = useAuthStore((state) => state.userId);
-  const token = useAuthStore((state) => state.token);
 
-  if (isHydrating) {
+  if (auth0Loading || isHydrating) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-ink-700">Validando sesion...</div>;
   }
 
-  if (!token && !userId) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
