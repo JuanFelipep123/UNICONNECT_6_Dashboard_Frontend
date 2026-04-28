@@ -36,7 +36,6 @@ export async function syncUserWithBackend(authSyncUrl: string, accessToken: stri
   try {
     response = await fetch(authSyncUrl, {
       method: 'POST',
-      credentials: 'include',
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -71,7 +70,6 @@ export async function restoreSessionFromBackend(authSessionUrl: string): Promise
   try {
     response = await fetch(authSessionUrl, {
       method: 'GET',
-      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },

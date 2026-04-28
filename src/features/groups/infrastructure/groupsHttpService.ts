@@ -102,7 +102,6 @@ export const groupsHttpService = {
     try {
       const response = await fetch(GROUPS_ENDPOINT, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -126,7 +125,6 @@ export const groupsHttpService = {
     try {
       const response = await fetch(`${GROUPS_ENDPOINT}/${id}`, {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -157,7 +155,6 @@ export const groupsHttpService = {
     try {
       const response = await fetch(`${GROUPS_ENDPOINT}/my-groups`, {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
