@@ -11,6 +11,12 @@ export interface ApiResponse<T> {
 
 export type StudyGroupCategory = 'ACADEMIC' | 'PROJECT' | 'SOCIAL' | 'SPORTS';
 
+export interface UserProfileSummary {
+  id: string;
+  fullName: string;
+  avatarUrl?: string;
+}
+
 export interface StudyGroupCreatePayload {
   name: string;
   description: string;
@@ -28,6 +34,8 @@ export interface StudyGroup {
   created_at: string;
   updated_at?: string;
   member_count?: number;
+  members?: string[];
+  pendingRequests?: string[];
   is_member?: boolean;
   is_admin: boolean;
 }
