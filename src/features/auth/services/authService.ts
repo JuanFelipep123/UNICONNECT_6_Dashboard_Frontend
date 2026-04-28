@@ -28,7 +28,6 @@ export function validateAuthConfig(config: AuthConfig): string[] {
 
   if (!config.domain) missing.push('VITE_AUTH0_DOMAIN');
   if (!config.clientId) missing.push('VITE_AUTH0_CLIENT_ID');
-  if (!config.authSyncUrl) missing.push('VITE_AUTH_SYNC_URL');
 
   return missing;
 }

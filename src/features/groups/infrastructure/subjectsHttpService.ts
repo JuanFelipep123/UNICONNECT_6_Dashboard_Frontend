@@ -25,7 +25,6 @@ export const subjectsHttpService = {
     try {
       const response = await fetch(`${SUBJECTS_ENDPOINT}/my-subjects`, {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),

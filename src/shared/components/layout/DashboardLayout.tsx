@@ -1,5 +1,6 @@
 import { Home, LogOut, Users } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
 import { useAuthStore } from '@shared/store/authStore';
 
 interface DashboardLayoutProps {
@@ -13,12 +14,12 @@ const navItems = [
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { logout: auth0Logout } = useAuth0();
   const clearSession = useAuthStore((state) => state.clearSession);
 
   const onLogout = () => {
     clearSession();
-    navigate('/login', { replace: true });
+    void auth0Logout({ logoutParams: { returnTo: `${window.location.origin}/login` } });
   };
 
   return (

@@ -1,32 +1,44 @@
-import { useMemo, useState } from 'react';
-import { buildAuthorizeUrl, getAuthConfig, validateAuthConfig } from '../services/authService';
-import { createPkceSession } from '../services/pkce';
+import { useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
+import { useSearchParams } from 'react-router-dom';
+import { getAuthConfig } from '../services/authService';
 
 export function useAuthLogin() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { loginWithRedirect, isLoading: auth0Loading } = useAuth0();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [hookError, setHookError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
-  const authConfig = useMemo(() => getAuthConfig(), []);
-  const missingConfig = useMemo(() => validateAuthConfig(authConfig), [authConfig]);
+  const config = getAuthConfig();
+  const missingConfig: string[] = [];
+  if (!config.domain) missingConfig.push('VITE_AUTH0_DOMAIN');
+  if (!config.clientId) missingConfig.push('VITE_AUTH0_CLIENT_ID');
+
+  const urlError = searchParams.get('error');
+  const errorMessage =
+    hookError ??
+    (urlError === 'email_not_allowed' ? 'Solo se permiten correos institucionales @ucaldas.edu.co' : null);
 
   const handleLogin = async () => {
     if (missingConfig.length > 0) {
-      setErrorMessage(`Configuracion incompleta: ${missingConfig.join(', ')}`);
+      setHookError(`Configuracion incompleta: ${missingConfig.join(', ')}`);
       return;
     }
 
-    setErrorMessage(null);
-    setIsLoading(true);
+    setHookError(null);
+    setIsRedirecting(true);
 
     try {
-      const { state, challenge } = await createPkceSession();
-      const authorizeUrl = buildAuthorizeUrl(authConfig, state, challenge);
-      window.location.assign(authorizeUrl);
+      await loginWithRedirect({
+        authorizationParams: { connection: config.connection },
+      });
     } catch {
-      setErrorMessage('No se pudo iniciar el flujo de autenticacion de Auth0.');
-      setIsLoading(false);
+      setHookError('No se pudo iniciar el flujo de autenticacion de Auth0.');
+      setIsRedirecting(false);
     }
   };
+
+  const isLoading = isRedirecting || auth0Loading;
 
   return {
     isLoading,
