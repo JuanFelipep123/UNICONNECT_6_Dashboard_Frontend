@@ -1,4 +1,4 @@
-import { Home, LogOut, Users } from 'lucide-react';
+import { Home, LogOut, MessageSquare, Users } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useAuthStore } from '@shared/store/authStore';
@@ -9,6 +9,7 @@ interface DashboardLayoutProps {
 
 const navItems = [
   { to: '/groups', label: 'Grupos', icon: Users },
+  { to: '/chat', label: 'Mensajes', icon: MessageSquare },
   { to: '/', label: 'Inicio', icon: Home },
 ];
 
