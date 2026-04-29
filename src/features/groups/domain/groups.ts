@@ -30,6 +30,7 @@ export interface StudyGroup {
   subject_id: string;
   subject?: StudyGroupSubject;
   category?: StudyGroupCategory;
+  createdBy?: string;
   creator_id: string;
   created_at: string;
   updated_at?: string;
@@ -52,4 +53,14 @@ export interface CreateGroupResponse {
 export interface Subject {
   id: string;
   name: string;
+}
+
+export interface LeaveGroupResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface TransferAdminResponse {
+  success: boolean;
+  message?: string;
 }

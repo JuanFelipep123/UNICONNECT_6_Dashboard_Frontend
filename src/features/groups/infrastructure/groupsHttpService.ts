@@ -88,6 +88,24 @@ const toBooleanSafe = (value: unknown): boolean => {
   return false;
 };
 
+const resolveSubjectId = (rawGroup: Record<string, unknown>): string => {
+  const rawSubject = rawGroup.subject;
+  if (rawSubject && typeof rawSubject === 'object') {
+    const subjectObj = rawSubject as Record<string, unknown>;
+    const nestedId = toStringSafe(subjectObj.id) || toStringSafe(subjectObj.subject_id) || toStringSafe(subjectObj.subjectId);
+    if (nestedId) return nestedId;
+  }
+
+  return (
+    toStringSafe(rawGroup.subject_id) ||
+    toStringSafe(rawGroup.subjectId) ||
+    toStringSafe(rawGroup.materia_id) ||
+    toStringSafe(rawGroup.materiaId) ||
+    toStringSafe(rawGroup.course_id) ||
+    toStringSafe(rawGroup.courseId)
+  );
+};
+
 const toUserId = (value: unknown): string => {
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
@@ -154,25 +172,46 @@ const normalizeProfile = (raw: unknown, fallbackId: string): UserProfileSummary 
 const resolveSubject = (rawGroup: Record<string, unknown>) => {
   const rawSubject = rawGroup.subject;
 
+  if (typeof rawSubject === 'string' && rawSubject.trim().length > 0) {
+    return {
+      id: resolveSubjectId(rawGroup),
+      name: rawSubject,
+    };
+  }
+
   if (rawSubject && typeof rawSubject === 'object') {
     const subjectObj = rawSubject as Record<string, unknown>;
     const id = toStringSafe(subjectObj.id);
-    const name = toStringSafe(subjectObj.name);
+    const name =
+      toStringSafe(subjectObj.name) ||
+      toStringSafe(subjectObj.subject_name) ||
+      toStringSafe(subjectObj.materia_nombre) ||
+      toStringSafe(subjectObj.label);
     if (name) {
       return { id, name };
     }
+  }
+
+  const rawMateria = rawGroup.materia;
+  if (typeof rawMateria === 'string' && rawMateria.trim().length > 0) {
+    return {
+      id: resolveSubjectId(rawGroup),
+      name: rawMateria,
+    };
   }
 
   const subjectName =
     toStringSafe(rawGroup.subject_name) ||
     toStringSafe(rawGroup.subjectName) ||
     toStringSafe(rawGroup.materia_nombre) ||
-    toStringSafe(rawGroup.materiaName);
+    toStringSafe(rawGroup.materiaName) ||
+    toStringSafe(rawGroup.course_name) ||
+    toStringSafe(rawGroup.courseName);
 
   if (!subjectName) return undefined;
 
   return {
-    id: toStringSafe(rawGroup.subject_id) || toStringSafe(rawGroup.subjectId),
+    id: resolveSubjectId(rawGroup),
     name: subjectName,
   };
 };
@@ -186,9 +225,10 @@ const normalizeGroup = (raw: unknown): StudyGroup => {
     id: toStringSafe(rawGroup.id),
     name: toStringSafe(rawGroup.name),
     description: toStringSafe(rawGroup.description),
-    subject_id: toStringSafe(rawGroup.subject_id) || toStringSafe(rawGroup.subjectId),
+    subject_id: resolveSubjectId(rawGroup),
     subject: resolveSubject(rawGroup),
     category: rawGroup.category as StudyGroup['category'],
+    createdBy: toStringSafe(rawGroup.createdBy) || toStringSafe(rawGroup.created_by) || undefined,
     creator_id:
       toStringSafe(rawGroup.creator_id) ||
       toStringSafe(rawGroup.creatorId) ||
@@ -346,6 +386,71 @@ export const groupsHttpService = {
       }
 
       return { success: true, data: groupsArrayRaw.map(normalizeGroup) };
+    } catch {
+      return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
+    }
+  },
+
+  async leaveGroup(groupId: string, token?: string | null): Promise<ApiResponse<{ success: boolean }>> {
+    try {
+      const response = await fetch(`${GROUPS_ENDPOINT}/${groupId}/leave`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const json = await readJson(response);
+
+      if (!response.ok) {
+        const errorMessage =
+          response.status === 403
+            ? 'El administrador no puede abandonar el grupo sin transferir la administración.'
+            : response.status === 404
+              ? 'No se encontró el grupo.'
+              : response.status === 409
+                ? 'Conflicto al intentar abandonar el grupo.'
+                : getErrorMessage(json, response.status);
+        return { success: false, error: errorMessage };
+      }
+
+      return { success: true, data: { success: true } };
+    } catch {
+      return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
+    }
+  },
+
+  async transferAdminAndLeave(
+    groupId: string,
+    newAdminId: string,
+    token?: string | null,
+  ): Promise<ApiResponse<{ success: boolean }>> {
+    try {
+      const response = await fetch(`${GROUPS_ENDPOINT}/${groupId}/transfer-admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ newAdminUserId: newAdminId }),
+      });
+
+      const json = await readJson(response);
+
+      if (!response.ok) {
+        const errorMessage =
+          response.status === 403
+            ? 'No tienes permisos para transferir la administración.'
+            : response.status === 404
+              ? 'No se encontró el grupo o el usuario seleccionado.'
+              : response.status === 409
+                ? 'El usuario seleccionado no es miembro del grupo.'
+                : getErrorMessage(json, response.status);
+        return { success: false, error: errorMessage };
+      }
+
+      return { success: true, data: { success: true } };
     } catch {
       return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
     }

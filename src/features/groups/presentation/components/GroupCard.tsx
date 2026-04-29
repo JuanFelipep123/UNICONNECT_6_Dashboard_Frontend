@@ -7,6 +7,9 @@ interface GroupCardProps {
 }
 
 export function GroupCard({ group }: GroupCardProps) {
+  const membersCount = group.members?.length ?? group.member_count ?? 0;
+  const pendingRequestsCount = group.pendingRequests?.length ?? 0;
+
   return (
     <Card className="space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -16,9 +19,15 @@ export function GroupCard({ group }: GroupCardProps) {
         </span>
       </div>
       <p className="text-sm text-ink-700">{group.description}</p>
-      <div className="flex items-center justify-between border-t border-ink-100 pt-3 text-xs text-ink-500">
-        <span>{group.subject?.name ?? 'Sin materia'}</span>
-        <span>{group.member_count ?? 0} miembros</span>
+      <div className="space-y-2 border-t border-ink-100 pt-3 text-xs text-ink-500">
+        <div className="flex items-center justify-between">
+          <span>{group.subject?.name ?? 'Sin materia'}</span>
+          <span>{membersCount} miembros</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Solicitudes</span>
+          <span>{pendingRequestsCount}</span>
+        </div>
       </div>
       <Link
         to={`/groups/${group.id}`}
