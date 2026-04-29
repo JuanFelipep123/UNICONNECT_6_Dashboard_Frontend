@@ -455,4 +455,39 @@ export const groupsHttpService = {
       return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
     }
   },
+
+  async respondTransferAdmin(
+    groupId: string,
+    action: 'accept' | 'reject',
+    token?: string | null,
+  ): Promise<ApiResponse<StudyGroup>> {
+    try {
+      const response = await fetch(`${GROUPS_ENDPOINT}/${groupId}/transfer-admin/respond`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      const json = await readJson(response);
+
+      if (!response.ok) {
+        const errorMessage =
+          response.status === 403
+            ? 'No tienes permisos para responder esta solicitud.'
+            : response.status === 404
+              ? 'No se encontró la solicitud de transferencia.'
+              : response.status === 409
+                ? 'La solicitud ya fue respondida o expiró.'
+                : getErrorMessage(json, response.status);
+        return { success: false, error: errorMessage };
+      }
+
+      return { success: true, data: normalizeGroup(extractGroupPayload(json)) };
+    } catch {
+      return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
+    }
+  },
 };

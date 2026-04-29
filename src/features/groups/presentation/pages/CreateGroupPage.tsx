@@ -21,7 +21,6 @@ export function CreateGroupPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-ink-900">Crear grupo de estudio</h1>
-        <p className="mt-1 text-sm text-ink-500">La UI es web, pero se conserva la logica y endpoints del backend mobile.</p>
       </div>
 
       <Card>

@@ -5,6 +5,7 @@ import { Button } from '@shared/components/ui/Button';
 import { Card } from '@shared/components/ui/Card';
 import { Modal } from '@shared/components/ui/Modal';
 import { useAuthStore } from '@shared/store/authStore';
+import { useToast } from '@shared/components/ui/ToastProvider';
 import type { StudyGroup, UserProfileSummary } from '../../domain/groups';
 import { groupsHttpService } from '../../infrastructure/groupsHttpService';
 import { GroupUserRow } from '../components/GroupUserRow';
@@ -60,7 +61,14 @@ export function GroupDetailPage() {
   const [selectedNewAdmin, setSelectedNewAdmin] = useState<string | null>(null);
   const [leavingGroup, setLeavingGroup] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [isTransferPending, setIsTransferPending] = useState(false);
+  const [pendingTransferCandidate, setPendingTransferCandidate] = useState<string | null>(null);
+  const [showTransferResponseModal, setShowTransferResponseModal] = useState(false);
+  const [transferCandidateName, setTransferCandidateName] = useState<string>('');
+  const [respondingToTransfer, setRespondingToTransfer] = useState(false);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const toast = useToast();
 
   const pendingRequests = group?.pendingRequests ?? [];
   const memberIds = group?.members ?? [];
@@ -135,8 +143,56 @@ export function GroupDetailPage() {
       setProcessingRequestUserId(null);
     };
 
+    const handleAdminTransferRequested = (payload: { groupId: string; fromUserId: string; toUserId: string }) => {
+      if (payload.groupId !== groupId || payload.toUserId !== currentUserId) return;
+
+      // El usuario actual fue seleccionado como nuevo admin
+      const candidateName = profiles[payload.fromUserId]?.fullName || `Usuario ${payload.fromUserId.slice(0, 8)}`;
+      setTransferCandidateName(candidateName);
+      setShowTransferResponseModal(true);
+      toast.push(`Te han seleccionado como posible administrador por ${candidateName}`, 'info');
+    };
+
+    const handleAdminTransferAccepted = (payload: { groupId: string; newAdminId: string }) => {
+      if (payload.groupId !== groupId) return;
+
+      // Actualizar el grupo con el nuevo admin
+      setGroup((currentGroup) => {
+        if (!currentGroup) return currentGroup;
+        return {
+          ...currentGroup,
+          createdBy: payload.newAdminId,
+          creator_id: payload.newAdminId,
+        };
+      });
+
+      setIsTransferPending(false);
+      setPendingTransferCandidate(null);
+      setShowAdminTransferModal(false);
+      setSelectedNewAdmin(null);
+
+      const newAdminName = profiles[payload.newAdminId]?.fullName || `Usuario ${payload.newAdminId.slice(0, 8)}`;
+      toast.push(`Transferencia aceptada: ${newAdminName} es el nuevo administrador.`, 'success');
+      // Si el usuario actual era el admin anterior, permitirle salir
+      if (isGroupAdmin) {
+        setLeaveError(null);
+      }
+    };
+
+    const handleAdminTransferRejected = (payload: { groupId: string }) => {
+      if (payload.groupId !== groupId) return;
+
+      setIsTransferPending(false);
+      setPendingTransferCandidate(null);
+      setLeaveError('El usuario rechazó la transferencia de administración. Intenta con otro miembro.');
+      toast.push('El usuario rechazó la transferencia de administración.', 'error');
+    };
+
     socket.on('connect', joinGroupRoom);
     socket.on('study-group:updated', handleStudyGroupUpdated);
+    socket.on('admin_transfer_requested', handleAdminTransferRequested);
+    socket.on('admin_transfer_accepted', handleAdminTransferAccepted);
+    socket.on('admin_transfer_rejected', handleAdminTransferRejected);
 
     if (socket.connected) {
       joinGroupRoom();
@@ -146,10 +202,13 @@ export function GroupDetailPage() {
       socket.emit('study-group:leave', { groupId });
       socket.off('connect', joinGroupRoom);
       socket.off('study-group:updated', handleStudyGroupUpdated);
+      socket.off('admin_transfer_requested', handleAdminTransferRequested);
+      socket.off('admin_transfer_accepted', handleAdminTransferAccepted);
+      socket.off('admin_transfer_rejected', handleAdminTransferRejected);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, groupId, token]);
+  }, [currentUserId, groupId, token, profiles, isGroupAdmin]);
 
   useEffect(() => {
     const loadProfiles = async () => {
@@ -239,19 +298,51 @@ export function GroupDetailPage() {
   const handleConfirmTransferAndLeave = async () => {
     if (!group || !token || !selectedNewAdmin) return;
 
-    setLeavingGroup(true);
+    setTransferSubmitting(true);
     setLeaveError(null);
 
     const response = await groupsHttpService.transferAdminAndLeave(group.id, selectedNewAdmin, token);
 
+    setTransferSubmitting(false);
+
     if (!response.success) {
       setLeaveError(response.error ?? 'No se pudo transferir la administración.');
-      setLeavingGroup(false);
       return;
     }
 
-    // La transferencia fue exitosa, navegar de vuelta a la lista de grupos
-    window.location.href = '/groups';
+    // La solicitud fue enviada correctamente: cerrar modal y mostrar estado no bloqueante
+    setIsTransferPending(true);
+    setPendingTransferCandidate(selectedNewAdmin);
+    setShowAdminTransferModal(false);
+    setSelectedNewAdmin(null);
+    const candidateName = profiles[selectedNewAdmin!]?.fullName || `Usuario ${selectedNewAdmin!.slice(0, 8)}`;
+    toast.push(`Solicitud enviada a ${candidateName}`, 'info');
+    // transferCandidateName se toma del profile para mostrar en modal candidato cuando sea necesario
+  };
+
+  const handleRespondTransfer = async (action: 'accept' | 'reject') => {
+    if (!group || !token) return;
+
+    setRespondingToTransfer(true);
+
+    const response = await groupsHttpService.respondTransferAdmin(group.id, action, token);
+
+    setRespondingToTransfer(false);
+
+    if (!response.success || !response.data) {
+      // Mostrar error pero mantener el modal abierto
+      setActionError(response.error ?? 'No se pudo responder la solicitud.');
+      return;
+    }
+
+    // La respuesta fue procesada, actualizar grupo y cerrar modal
+    setGroup(response.data);
+    setShowTransferResponseModal(false);
+    if (action === 'accept') {
+      toast.push('Has aceptado la transferencia. Ahora eres administrador.', 'success');
+    } else {
+      toast.push('Has rechazado la transferencia.', 'info');
+    }
   };
 
   if (loading) {
@@ -273,13 +364,24 @@ export function GroupDetailPage() {
           <p className="text-sm text-ink-500">Miembros: {membersCount}</p>
           <p className="text-sm text-ink-500">Solicitudes pendientes: {pendingRequests.length}</p>
           <p className="text-sm text-ink-500">Administrador: {group.is_admin ? 'Si' : 'No'}</p>
+
+          {isTransferPending && pendingTransferCandidate ? (
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+              <p className="text-sm font-medium text-blue-900">
+                ⏳ Transferencia en proceso...
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Esperando respuesta de {profiles[pendingTransferCandidate]?.fullName || `Usuario ${pendingTransferCandidate.slice(0, 8)}`}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <div className="border-t border-ink-200 pt-3">
           <Button
             type="button"
             variant="danger"
-            disabled={leavingGroup}
+            disabled={leavingGroup || isTransferPending}
             onClick={handleInitiateLeave}
             className="w-full"
           >
@@ -382,11 +484,11 @@ export function GroupDetailPage() {
             <Button
               type="button"
               variant="danger"
-              disabled={!selectedNewAdmin || leavingGroup}
+              disabled={!selectedNewAdmin || transferSubmitting}
               onClick={() => void handleConfirmTransferAndLeave()}
               className="flex-1"
             >
-              {leavingGroup ? 'Transfiriendo...' : 'Transferir y salir'}
+              {transferSubmitting ? 'Enviando...' : 'Transferir y salir'}
             </Button>
           </div>
         }
@@ -437,6 +539,50 @@ export function GroupDetailPage() {
             ) : (
               <p className="text-sm text-ink-600">No hay otros miembros disponibles en el grupo.</p>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showTransferResponseModal}
+        onClose={() => setShowTransferResponseModal(false)}
+        title="Solicitud de Administración"
+        footer={
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={respondingToTransfer}
+              onClick={() => void handleRespondTransfer('reject')}
+              className="flex-1"
+            >
+              {respondingToTransfer ? 'Procesando...' : 'Rechazar'}
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+              disabled={respondingToTransfer}
+              onClick={() => void handleRespondTransfer('accept')}
+            >
+              {respondingToTransfer ? 'Procesando...' : 'Aceptar'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-600">
+            Te han asignado como nuevo administrador del grupo. ¿Aceptas esta responsabilidad?
+          </p>
+
+          {actionError ? <p className="text-sm font-medium text-red-600">{actionError}</p> : null}
+
+          <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+            <p className="text-sm font-medium text-blue-900">
+              {transferCandidateName} está dejando el grupo
+            </p>
+            <p className="text-xs text-blue-700 mt-1">
+              Como nuevo administrador, serás responsable de gestionar solicitudes y miembros.
+            </p>
           </div>
         </div>
       </Modal>
