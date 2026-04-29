@@ -28,12 +28,3 @@ export function getChatBaseUrl(): string {
 
 export const API_BASE_URL = getApiBaseUrl();
 export const CHAT_BASE_URL = getChatBaseUrl();
-
-export function wallSocket(groupId: string, userId: string): WebSocket {
-  const base = (import.meta.env.VITE_CHAT_SERVICE_URL ?? `http://localhost:${DEFAULT_CHAT_PORT}`)
-    .trim()
-    .replace(/\/+$/, '')
-    .replace(/^https/, 'wss')
-    .replace(/^http/, 'ws');
-  return new WebSocket(`${base}/walls?groupId=${encodeURIComponent(groupId)}&userId=${encodeURIComponent(userId)}`);
-}

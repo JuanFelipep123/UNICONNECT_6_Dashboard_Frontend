@@ -1,17 +1,74 @@
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
+import { useAuthStore } from '@shared/store/authStore';
 import { Button } from '@shared/components/ui/Button';
 import { Card } from '@shared/components/ui/Card';
+import { wallSocket } from '../../infrastructure/wallSocketService';
+import { wallHttpService, normalizeWallPost } from '../../infrastructure/wallHttpService';
 import { WallPostCard } from '../components/WallPostCard';
 import { useWallHistory } from '../hooks/useWallHistory';
 
 export function WallHistoryPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
-  const { posts, loading, loadingMore, hasMore, error, loadMore } = useWallHistory(groupId ?? '');
+  const userId = useAuthStore((state) => state.userId);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { posts, setPosts, loading, loadingMore, hasMore, error, loadMore } = useWallHistory(
+    groupId ?? '',
+  );
+
+  const [content, setContent] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!groupId || !userId) return;
+
+    wallSocket.connect(userId);
+    wallSocket.joinWall(groupId);
+    wallSocket.onNewPost((post) => {
+      setPosts((prev) => [...prev, normalizeWallPost(post)]);
+    });
+
+    return () => {
+      wallSocket.offNewPost();
+      wallSocket.leaveWall(groupId);
+      wallSocket.disconnect();
+    };
+  }, [groupId, userId, setPosts]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [posts.length]);
+
+  const handleSend = async () => {
+    const trimmed = content.trim();
+    if (!trimmed || sending || !groupId) return;
+
+    setSending(true);
+    setSendError(null);
+
+    const result = await wallHttpService.sendPost(groupId, trimmed);
+
+    if (!result.success) {
+      setSendError(result.error ?? 'No se pudo enviar el mensaje');
+    } else {
+      setContent('');
+    }
+
+    setSending(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      void handleSend();
+    }
+  };
 
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="flex h-full flex-col gap-4">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -38,31 +95,50 @@ export function WallHistoryPage() {
           ))}
         </div>
       ) : (
-        <>
-          {hasMore && (
-            <div className="flex justify-center">
-              <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? 'Cargando...' : 'Cargar más'}
+        <div className="flex flex-1 flex-col gap-4 overflow-hidden">
+          <div className="flex-1 overflow-y-auto space-y-6 pr-1">
+            {hasMore && (
+              <div className="flex justify-center">
+                <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? 'Cargando...' : 'Cargar más'}
+                </Button>
+              </div>
+            )}
+
+            {posts.length === 0 ? (
+              <Card className="py-12 text-center text-sm text-ink-500">
+                Sé el primero en publicar en este grupo.
+              </Card>
+            ) : (
+              posts.map((post) => <WallPostCard key={post.id} post={post} />)
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="rounded-xl border border-ink-100 bg-white p-3">
+            {sendError && (
+              <p className="mb-2 text-xs font-medium text-red-600">{sendError}</p>
+            )}
+            <div className="flex items-end gap-2">
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Escribe un mensaje... (Ctrl+Enter para enviar)"
+                rows={2}
+                className="flex-1 resize-none rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm text-ink-900 placeholder-ink-400 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              />
+              <Button
+                onClick={() => void handleSend()}
+                disabled={sending || !content.trim()}
+                className="flex-shrink-0"
+              >
+                <Send size={16} />
               </Button>
             </div>
-          )}
-
-          {posts.length === 0 ? (
-            <Card className="py-12 text-center text-sm text-ink-500">
-              Sé el primero en publicar en este grupo.
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <WallPostCard key={post.id} post={post} />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-auto rounded-xl border border-ink-100 bg-white p-4">
-            <p className="text-sm text-ink-400">Escribe un mensaje... (próximamente)</p>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

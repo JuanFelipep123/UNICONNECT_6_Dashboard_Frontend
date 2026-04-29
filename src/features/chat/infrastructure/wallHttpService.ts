@@ -42,6 +42,8 @@ const normalizeInboxItem = (raw: unknown): WallInboxItem => {
   };
 };
 
+export { normalizePost as normalizeWallPost };
+
 export const wallHttpService = {
   async getWalls(): Promise<ChatApiResponse<WallInboxItem[]>> {
     try {
@@ -96,6 +98,24 @@ export const wallHttpService = {
       }
 
       return { success: true, data: posts.map(normalizePost) };
+    } catch {
+      return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
+    }
+  },
+
+  async sendPost(groupId: string, content: string): Promise<ChatApiResponse<WallPost>> {
+    try {
+      const response = await chatFetch(`/groups/${encodeURIComponent(groupId)}/wall`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      });
+      const json = await safeJson(response);
+
+      if (!response.ok) {
+        return { success: false, error: getError(json, response.status) };
+      }
+
+      return { success: true, data: normalizePost(json) };
     } catch {
       return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
     }

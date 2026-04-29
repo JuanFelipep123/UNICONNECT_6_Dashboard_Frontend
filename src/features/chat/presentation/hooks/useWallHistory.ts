@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type React from 'react';
 import type { WallPost } from '../../domain/wall';
 import { wallHttpService } from '../../infrastructure/wallHttpService';
 
@@ -6,6 +7,7 @@ const PAGE_SIZE = 20;
 
 interface UseWallHistoryReturn {
   posts: WallPost[];
+  setPosts: React.Dispatch<React.SetStateAction<WallPost[]>>;
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
@@ -66,5 +68,5 @@ export function useWallHistory(groupId: string): UseWallHistoryReturn {
     setLoadingMore(false);
   }, [groupId, loadingMore, hasMore]);
 
-  return { posts, loading, loadingMore, hasMore, error, loadMore };
+  return { posts, setPosts, loading, loadingMore, hasMore, error, loadMore };
 }
