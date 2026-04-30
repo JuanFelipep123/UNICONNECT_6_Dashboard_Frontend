@@ -1,0 +1,36 @@
+# Dependencias — se reinstalan con npm ci en el build
+node_modules
+
+# Variables de entorno locales — NO deben ir al contexto Docker
+.env
+.env.local
+.env.*.local
+
+# Build local previo
+dist
+
+# Git
+.git
+.gitignore
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests y archivos de desarrollo
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+test-*.ts
