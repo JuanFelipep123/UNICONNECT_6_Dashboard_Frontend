@@ -7,6 +7,7 @@ import { AuthCallbackPage } from '@features/auth/presentation/pages/AuthCallback
 import { GroupsListPage } from '@features/groups/presentation/pages/GroupsListPage';
 import { GroupDetailPage } from '@features/groups/presentation/pages/GroupDetailPage';
 import { CreateGroupPage } from '@features/groups/presentation/pages/CreateGroupPage';
+import { WallInboxPage, WallHistoryPage } from '@features/chat';
 
 function ProtectedLayout() {
   const { isLoading: auth0Loading, isAuthenticated } = useAuth0();
@@ -38,6 +39,8 @@ export function AppRouter() {
         <Route path="/groups" element={<GroupsListPage />} />
         <Route path="/groups/create" element={<CreateGroupPage />} />
         <Route path="/groups/:groupId" element={<GroupDetailPage />} />
+        <Route path="/chat" element={<WallInboxPage />} />
+        <Route path="/chat/groups/:groupId/wall" element={<WallHistoryPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/groups" replace />} />
