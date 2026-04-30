@@ -1,4 +1,3 @@
-import { Home, LogOut, MessageSquare, Users } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useAuthStore } from '@shared/store/authStore';
@@ -9,9 +8,9 @@ interface DashboardLayoutProps {
 }
 
 const navItems = [
-  { to: '/groups', label: 'Grupos', icon: Users },
-  { to: '/chat', label: 'Mensajes', icon: MessageSquare },
-  { to: '/', label: 'Inicio', icon: Home },
+  { to: '/groups', label: 'Grupos', icon: 'group' },
+  { to: '/chat', label: 'Mensajes', icon: 'chat' },
+  { to: '/', label: 'Inicio', icon: 'home' },
 ];
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -25,11 +24,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <aside className="w-72 border-r border-ink-100 bg-white/90 p-5 shadow-panel backdrop-blur">
-        <div className="mb-8">
-          <p className="text-xs uppercase tracking-[0.2em] text-brand-700">UniConnect</p>
-          <h1 className="mt-2 text-2xl font-bold text-ink-900">Dashboard</h1>
     <div className="flex min-h-screen bg-ink-50">
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside
@@ -160,8 +154,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         <main className="flex-1 overflow-y-auto p-8">{children}</main>
-        {/* Page content */}
-        <main className="flex-1 p-8">{children}</main>
 
         {/* Footer */}
         <footer
