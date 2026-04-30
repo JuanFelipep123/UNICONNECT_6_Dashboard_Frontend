@@ -24,7 +24,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <aside className="w-72 border-r border-ink-100 bg-white/90 p-5 shadow-panel backdrop-blur">
         <div className="mb-8">
           <p className="text-xs uppercase tracking-[0.2em] text-brand-700">UniConnect</p>
@@ -70,7 +70,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </span>
         </header>
 
-        <main className="flex-1 p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
     </div>
   );

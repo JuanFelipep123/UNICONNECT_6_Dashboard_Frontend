@@ -1,28 +1,28 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@shared/store/authStore';
-import { Button } from '@shared/components/ui/Button';
 import { Card } from '@shared/components/ui/Card';
 import { wallSocket } from '../../infrastructure/wallSocketService';
-import { wallHttpService, normalizeWallPost } from '../../infrastructure/wallHttpService';
-import { WallPostCard } from '../components/WallPostCard';
+import { normalizeWallPost } from '../../infrastructure/wallHttpService';
+import { WallPostWithAttachments } from '../components/WallPostWithAttachments';
+import { WallPostInput } from '../components/WallPostInput';
 import { useWallHistory } from '../hooks/useWallHistory';
 
 export function WallHistoryPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const userId = useAuthStore((state) => state.userId);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   const { posts, setPosts, loading, loadingMore, hasMore, error, loadMore } = useWallHistory(
     groupId ?? '',
   );
 
-  const [content, setContent] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef = useRef<number>(0);
+  const isLoadingMoreRef = useRef(false);
 
+  // Socket lifecycle
   useEffect(() => {
     if (!groupId || !userId) return;
 
@@ -39,37 +39,36 @@ export function WallHistoryPage() {
     };
   }, [groupId, userId, setPosts]);
 
+  // Scroll management: bottom on new post, position restore on load more
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [posts.length]);
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  const handleSend = async () => {
-    const trimmed = content.trim();
-    if (!trimmed || sending || !groupId) return;
-
-    setSending(true);
-    setSendError(null);
-
-    const result = await wallHttpService.sendPost(groupId, trimmed);
-
-    if (!result.success) {
-      setSendError(result.error ?? 'No se pudo enviar el mensaje');
+    if (isLoadingMoreRef.current) {
+      container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
+      isLoadingMoreRef.current = false;
     } else {
-      setContent('');
+      container.scrollTop = container.scrollHeight;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts]);
 
-    setSending(false);
-  };
+  // Infinite scroll: trigger loadMore when user scrolls near the top
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || loadingMore || !hasMore) return;
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      void handleSend();
+    if (container.scrollTop <= 80) {
+      prevScrollHeightRef.current = container.scrollHeight;
+      isLoadingMoreRef.current = true;
+      void loadMore();
     }
-  };
+  }, [loadingMore, hasMore, loadMore]);
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center gap-3">
+      {/* Header — always visible */}
+      <div className="flex flex-shrink-0 items-center gap-3">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -95,50 +94,35 @@ export function WallHistoryPage() {
           ))}
         </div>
       ) : (
-        <div className="flex flex-1 flex-col gap-4 overflow-hidden">
-          <div className="flex-1 overflow-y-auto space-y-6 pr-1">
-            {hasMore && (
-              <div className="flex justify-center">
-                <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
-                  {loadingMore ? 'Cargando...' : 'Cargar más'}
-                </Button>
+        <>
+          {/* Scrollable messages — fills remaining space */}
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto pr-1"
+          >
+            {loadingMore && (
+              <div className="flex justify-center py-3">
+                <Loader2 size={18} className="animate-spin text-ink-400" />
               </div>
             )}
 
-            {posts.length === 0 ? (
-              <Card className="py-12 text-center text-sm text-ink-500">
-                Sé el primero en publicar en este grupo.
-              </Card>
-            ) : (
-              posts.map((post) => <WallPostCard key={post.id} post={post} />)
-            )}
-
-            <div ref={bottomRef} />
-          </div>
-
-          <div className="rounded-xl border border-ink-100 bg-white p-3">
-            {sendError && (
-              <p className="mb-2 text-xs font-medium text-red-600">{sendError}</p>
-            )}
-            <div className="flex items-end gap-2">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Escribe un mensaje... (Ctrl+Enter para enviar)"
-                rows={2}
-                className="flex-1 resize-none rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm text-ink-900 placeholder-ink-400 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-              />
-              <Button
-                onClick={() => void handleSend()}
-                disabled={sending || !content.trim()}
-                className="flex-shrink-0"
-              >
-                <Send size={16} />
-              </Button>
+            <div className="space-y-6 pb-2">
+              {posts.length === 0 ? (
+                <Card className="py-12 text-center text-sm text-ink-500">
+                  Sé el primero en publicar en este grupo.
+                </Card>
+              ) : (
+                posts.map((post) => <WallPostWithAttachments key={post.id} post={post} />)
+              )}
             </div>
           </div>
-        </div>
+
+          {/* Input — always pinned at bottom */}
+          <div className="flex-shrink-0">
+            {groupId && <WallPostInput groupId={groupId} />}
+          </div>
+        </>
       )}
     </div>
   );

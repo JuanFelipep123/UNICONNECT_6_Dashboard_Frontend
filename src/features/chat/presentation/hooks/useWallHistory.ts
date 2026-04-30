@@ -5,6 +5,9 @@ import { wallHttpService } from '../../infrastructure/wallHttpService';
 
 const PAGE_SIZE = 20;
 
+const sortChronological = (posts: WallPost[]): WallPost[] =>
+  [...posts].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
 interface UseWallHistoryReturn {
   posts: WallPost[];
   setPosts: React.Dispatch<React.SetStateAction<WallPost[]>>;
@@ -34,9 +37,10 @@ export function useWallHistory(groupId: string): UseWallHistoryReturn {
       setPosts([]);
       setError(result.error ?? 'No se pudo cargar el historial');
     } else {
-      setPosts(result.data);
+      const sorted = sortChronological(result.data);
+      setPosts(sorted);
       setHasMore(result.data.length === PAGE_SIZE);
-      oldestIdRef.current = result.data[0]?.id;
+      oldestIdRef.current = sorted[0]?.id;
     }
 
     setLoading(false);
@@ -57,10 +61,10 @@ export function useWallHistory(groupId: string): UseWallHistoryReturn {
     });
 
     if (result.success && result.data && result.data.length > 0) {
-      const older = result.data;
-      setPosts((prev) => [...older, ...prev]);
-      setHasMore(older.length === PAGE_SIZE);
-      oldestIdRef.current = older[0]?.id ?? oldestIdRef.current;
+      const olderSorted = sortChronological(result.data);
+      setPosts((prev) => [...olderSorted, ...prev]);
+      setHasMore(olderSorted.length === PAGE_SIZE);
+      oldestIdRef.current = olderSorted[0]?.id ?? oldestIdRef.current;
     } else {
       setHasMore(false);
     }
