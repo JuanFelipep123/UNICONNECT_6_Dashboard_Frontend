@@ -11,10 +11,22 @@ export interface ApiResponse<T> {
 
 export type StudyGroupCategory = 'ACADEMIC' | 'PROJECT' | 'SOCIAL' | 'SPORTS';
 
+export interface UserProfileSummary {
+  id: string;
+  fullName: string;
+  avatarUrl?: string;
+}
+
 export interface StudyGroupCreatePayload {
   name: string;
   description: string;
   subject_id: string;
+}
+
+export interface PendingAdminTransfer {
+  fromUserId: string;
+  toUserId: string;
+  status: 'pending' | 'accepted' | 'rejected';
 }
 
 export interface StudyGroup {
@@ -24,10 +36,14 @@ export interface StudyGroup {
   subject_id: string;
   subject?: StudyGroupSubject;
   category?: StudyGroupCategory;
+  createdBy?: string;
   creator_id: string;
   created_at: string;
   updated_at?: string;
   member_count?: number;
+  members?: string[];
+  pendingRequests?: string[];
+  pendingAdminTransfer?: PendingAdminTransfer;
   is_member?: boolean;
   is_admin: boolean;
 }
@@ -44,4 +60,14 @@ export interface CreateGroupResponse {
 export interface Subject {
   id: string;
   name: string;
+}
+
+export interface LeaveGroupResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface TransferAdminResponse {
+  success: boolean;
+  message?: string;
 }

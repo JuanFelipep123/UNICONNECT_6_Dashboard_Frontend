@@ -18,7 +18,6 @@ export function LoginPage() {
       return;
     }
 
-    // Placeholder de login web: cuando conectes auth real, solo remplaza este bloque.
     setSession({
       userId: 'web-admin-user',
       token: 'fake-token-for-local-dashboard',

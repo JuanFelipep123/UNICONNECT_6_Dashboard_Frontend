@@ -4,29 +4,49 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ── UniConnect design tokens (from mockup) ──────────────────
         brand: {
-          50: '#e8f1ff',
-          100: '#c8dcff',
-          500: '#2563eb',
-          700: '#1d4ed8',
-          900: '#1e3a8a',
+          50:  '#e8f1ff',
+          100: '#d3e3ff',
+          500: '#426088',
+          700: '#00284D',
+          900: '#00132a',
+        },
+        gold: {
+          300: '#e9c176',
+          400: '#D4AF37',
+          500: '#B8972F',
         },
         ink: {
-          900: '#111827',
-          700: '#374151',
-          500: '#6b7280',
-          300: '#d1d5db',
-          100: '#f3f4f6',
+          900: '#1b1c1c',
+          700: '#43474e',
+          500: '#73777f',
+          300: '#c3c6cf',
+          200: '#e4e2e1',
+          100: '#f0eded',
+          50:  '#fbf9f8',
+        },
+        error: {
+          DEFAULT: '#ba1a1a',
+          container: '#ffdad6',
         },
       },
       fontFamily: {
-        sans: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans:  ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['"Noto Serif"', 'Georgia', 'serif'],
       },
       boxShadow: {
-        panel: '0 10px 30px -15px rgba(17, 24, 39, 0.2)',
+        panel:  '0 10px 30px -15px rgba(0,0,0,0.20)',
+        card:   '0px 4px 20px rgba(0,0,0,0.05)',
+        sidebar:'2px 0 24px rgba(0,0,0,0.18)',
+      },
+      borderRadius: {
+        DEFAULT: '0.125rem',
+        lg:  '0.25rem',
+        xl:  '0.5rem',
+        '2xl': '0.75rem',
       },
     },
   },
   plugins: [],
 }
-

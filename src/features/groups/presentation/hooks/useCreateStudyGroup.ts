@@ -7,7 +7,26 @@ interface UseCreateStudyGroupReturn {
   isLoading: boolean;
   error: string | null;
   createGroup: (payload: StudyGroupCreatePayload) => Promise<string | null>;
+  clearError: () => void;
 }
+
+/**
+ * Translates known backend error messages to user-friendly Spanish strings.
+ * Add more cases here as the API evolves.
+ */
+const translateApiError = (raw: string): string => {
+  const lower = raw.toLowerCase();
+
+  if (lower.includes('maximum') && lower.includes('3') && lower.includes('study group')) {
+    return 'Esta materia ya tiene el máximo de 3 grupos de estudio permitidos. Intenta con otra materia o únete a un grupo existente.';
+  }
+
+  if (lower.includes('maximum') && lower.includes('study group')) {
+    return 'Se alcanzó el límite máximo de grupos de estudio para esta materia.';
+  }
+
+  return raw;
+};
 
 export const useCreateStudyGroup = (): UseCreateStudyGroupReturn => {
   const token = useAuthStore((state) => state.token);
@@ -16,7 +35,7 @@ export const useCreateStudyGroup = (): UseCreateStudyGroupReturn => {
 
   const createGroup = async (payload: StudyGroupCreatePayload): Promise<string | null> => {
     if (!payload.name.trim() || !payload.description.trim() || !payload.subject_id.trim()) {
-      setError('Completa nombre, descripcion y materia.');
+      setError('Completa nombre, descripción y materia.');
       return null;
     }
 
@@ -28,12 +47,12 @@ export const useCreateStudyGroup = (): UseCreateStudyGroupReturn => {
     setIsLoading(false);
 
     if (!response.success || !response.data) {
-      setError(response.error ?? 'No se pudo crear el grupo.');
+      setError(translateApiError(response.error ?? 'No se pudo crear el grupo.'));
       return null;
     }
 
     return response.data.id ?? null;
   };
 
-  return { isLoading, error, createGroup };
+  return { isLoading, error, createGroup, clearError: () => setError(null) };
 };
