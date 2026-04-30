@@ -108,10 +108,25 @@ export function GroupDetailPage() {
 
       setGroup(response.data);
       setLoading(false);
+
+      if (
+        response.data.pendingAdminTransfer?.status === 'pending' &&
+        response.data.pendingAdminTransfer.toUserId === currentUserId
+      ) {
+        const fromUserId = response.data.pendingAdminTransfer.fromUserId;
+        setShowTransferResponseModal(true);
+        groupsHttpService.getProfileById(fromUserId, token).then((prof) => {
+          if (prof.success && prof.data) {
+            setTransferCandidateName(prof.data.fullName);
+          } else {
+            setTransferCandidateName(`Usuario ${fromUserId.slice(0, 8)}`);
+          }
+        });
+      }
     };
 
     void load();
-  }, [groupId, token]);
+  }, [groupId, token, currentUserId]);
 
   useEffect(() => {
     if (!token || !currentUserId || !groupId) return;

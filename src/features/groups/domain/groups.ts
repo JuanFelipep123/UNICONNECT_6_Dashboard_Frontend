@@ -23,6 +23,12 @@ export interface StudyGroupCreatePayload {
   subject_id: string;
 }
 
+export interface PendingAdminTransfer {
+  fromUserId: string;
+  toUserId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
 export interface StudyGroup {
   id: string;
   name: string;
@@ -37,6 +43,7 @@ export interface StudyGroup {
   member_count?: number;
   members?: string[];
   pendingRequests?: string[];
+  pendingAdminTransfer?: PendingAdminTransfer;
   is_member?: boolean;
   is_admin: boolean;
 }
