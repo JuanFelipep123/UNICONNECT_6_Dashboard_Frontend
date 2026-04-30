@@ -243,6 +243,7 @@ const normalizeGroup = (raw: unknown): StudyGroup => {
       members.length,
     members,
     pendingRequests,
+    pendingAdminTransfer: rawGroup.pendingAdminTransfer as StudyGroup['pendingAdminTransfer'],
     is_member: toBooleanSafe(rawGroup.is_member ?? rawGroup.isMember),
     is_admin: toBooleanSafe(rawGroup.is_admin ?? rawGroup.isAdmin),
   };

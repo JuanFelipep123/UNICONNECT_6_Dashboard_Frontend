@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useAuthStore } from '@shared/store/authStore';
+import { NotificationBell } from './NotificationBell';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -140,7 +141,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <NotificationBell />
             <div
               className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
               style={{ background: '#d3e3ff', color: '#001c39', letterSpacing: '0.08em' }}
