@@ -70,12 +70,22 @@ export function GroupDetailPage() {
   const socketRef = useRef<Socket | null>(null);
   const toast = useToast();
 
+  // ── Refs to avoid socket effect re-runs on every profile/admin change ──
+  const profilesRef = useRef<Record<string, UserProfileSummary>>(profiles);
+  const isGroupAdminRef = useRef(false);
+  const toastRef = useRef(toast);
+
   const pendingRequests = group?.pendingRequests ?? [];
   const memberIds = group?.members ?? [];
   const membersCount = memberIds.length || group?.member_count || 0;
   const groupAdminId = group?.createdBy || group?.creator_id || '';
   const isGroupAdmin = Boolean(group && currentUserId && groupAdminId === currentUserId);
   const members = memberIds.map((memberId) => toRenderablePerson(memberId, profiles[memberId]));
+
+  // ── Keep refs in sync with latest state ──
+  useEffect(() => { profilesRef.current = profiles; }, [profiles]);
+  useEffect(() => { isGroupAdminRef.current = isGroupAdmin; }, [isGroupAdmin]);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
   const pendingPeople = pendingRequests.map((requestUserId) => toRenderablePerson(requestUserId, profiles[requestUserId]));
 
   useEffect(() => {
@@ -146,17 +156,15 @@ export function GroupDetailPage() {
     const handleAdminTransferRequested = (payload: { groupId: string; fromUserId: string; toUserId: string }) => {
       if (payload.groupId !== groupId || payload.toUserId !== currentUserId) return;
 
-      // El usuario actual fue seleccionado como nuevo admin
-      const candidateName = profiles[payload.fromUserId]?.fullName || `Usuario ${payload.fromUserId.slice(0, 8)}`;
+      const candidateName = profilesRef.current[payload.fromUserId]?.fullName || `Usuario ${payload.fromUserId.slice(0, 8)}`;
       setTransferCandidateName(candidateName);
       setShowTransferResponseModal(true);
-      toast.push(`Te han seleccionado como posible administrador por ${candidateName}`, 'info');
+      toastRef.current.push(`Te han seleccionado como posible administrador por ${candidateName}`, 'info');
     };
 
     const handleAdminTransferAccepted = (payload: { groupId: string; newAdminId: string }) => {
       if (payload.groupId !== groupId) return;
 
-      // Actualizar el grupo con el nuevo admin
       setGroup((currentGroup) => {
         if (!currentGroup) return currentGroup;
         return {
@@ -171,10 +179,9 @@ export function GroupDetailPage() {
       setShowAdminTransferModal(false);
       setSelectedNewAdmin(null);
 
-      const newAdminName = profiles[payload.newAdminId]?.fullName || `Usuario ${payload.newAdminId.slice(0, 8)}`;
-      toast.push(`Transferencia aceptada: ${newAdminName} es el nuevo administrador.`, 'success');
-      // Si el usuario actual era el admin anterior, permitirle salir
-      if (isGroupAdmin) {
+      const newAdminName = profilesRef.current[payload.newAdminId]?.fullName || `Usuario ${payload.newAdminId.slice(0, 8)}`;
+      toastRef.current.push(`Transferencia aceptada: ${newAdminName} es el nuevo administrador.`, 'success');
+      if (isGroupAdminRef.current) {
         setLeaveError(null);
       }
     };
@@ -185,7 +192,7 @@ export function GroupDetailPage() {
       setIsTransferPending(false);
       setPendingTransferCandidate(null);
       setLeaveError('El usuario rechazó la transferencia de administración. Intenta con otro miembro.');
-      toast.push('El usuario rechazó la transferencia de administración.', 'error');
+      toastRef.current.push('El usuario rechazó la transferencia de administración.', 'error');
     };
 
     socket.on('connect', joinGroupRoom);
@@ -208,7 +215,7 @@ export function GroupDetailPage() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, groupId, token, profiles, isGroupAdmin]);
+  }, [currentUserId, groupId, token]);
 
   useEffect(() => {
     const loadProfiles = async () => {
@@ -291,7 +298,6 @@ export function GroupDetailPage() {
       return;
     }
 
-    // El abandono fue exitoso, navegar de vuelta a la lista de grupos
     window.location.href = '/groups';
   };
 
@@ -310,14 +316,12 @@ export function GroupDetailPage() {
       return;
     }
 
-    // La solicitud fue enviada correctamente: cerrar modal y mostrar estado no bloqueante
     setIsTransferPending(true);
     setPendingTransferCandidate(selectedNewAdmin);
     setShowAdminTransferModal(false);
     setSelectedNewAdmin(null);
     const candidateName = profiles[selectedNewAdmin!]?.fullName || `Usuario ${selectedNewAdmin!.slice(0, 8)}`;
     toast.push(`Solicitud enviada a ${candidateName}`, 'info');
-    // transferCandidateName se toma del profile para mostrar en modal candidato cuando sea necesario
   };
 
   const handleRespondTransfer = async (action: 'accept' | 'reject') => {
@@ -330,12 +334,10 @@ export function GroupDetailPage() {
     setRespondingToTransfer(false);
 
     if (!response.success || !response.data) {
-      // Mostrar error pero mantener el modal abierto
       setActionError(response.error ?? 'No se pudo responder la solicitud.');
       return;
     }
 
-    // La respuesta fue procesada, actualizar grupo y cerrar modal
     setGroup(response.data);
     setShowTransferResponseModal(false);
     if (action === 'accept') {
@@ -346,16 +348,37 @@ export function GroupDetailPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-ink-700">Cargando detalle...</p>;
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="flex flex-col items-center gap-3">
+          <span
+            className="material-symbols-outlined animate-spin"
+            style={{ fontSize: '32px', color: '#D4AF37' }}
+          >
+            progress_activity
+          </span>
+          <p className="text-sm font-medium" style={{ color: '#73777f' }}>
+            Cargando detalle del grupo...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (pageError || !group) {
-    return <Card className="text-sm font-medium text-red-600">{pageError ?? 'No se encontro el grupo.'}</Card>;
+    return (
+      <Card
+        className="text-sm font-medium"
+        style={{ color: '#ba1a1a', borderColor: '#ffdad6', background: '#fff8f7' }}
+      >
+        {pageError ?? 'No se encontró el grupo.'}
+      </Card>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-ink-900">{group.name}</h1>
+    <div className="space-y-6 max-w-4xl">
+      <h1 className="font-serif font-bold" style={{ fontSize: '28px', color: '#00132a', letterSpacing: '-0.01em' }}>{group.name}</h1>
 
       <Card className="space-y-4">
         <div className="space-y-3">
@@ -366,11 +389,11 @@ export function GroupDetailPage() {
           <p className="text-sm text-ink-500">Administrador: {group.is_admin ? 'Si' : 'No'}</p>
 
           {isTransferPending && pendingTransferCandidate ? (
-            <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
-              <p className="text-sm font-medium text-blue-900">
+            <div className="rounded-xl p-3" style={{ background: '#d3e3ff', border: '1px solid #aac8f6' }}>
+              <p className="text-sm font-medium" style={{ color: '#001c39' }}>
                 ⏳ Transferencia en proceso...
               </p>
-              <p className="text-xs text-blue-700 mt-1">
+              <p className="text-xs mt-1" style={{ color: '#29486e' }}>
                 Esperando respuesta de {profiles[pendingTransferCandidate]?.fullName || `Usuario ${pendingTransferCandidate.slice(0, 8)}`}
               </p>
             </div>
@@ -393,8 +416,8 @@ export function GroupDetailPage() {
 
       <Card className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-ink-900">Miembros del grupo</h2>
-          <p className="text-sm text-ink-500">Consulta quiénes forman parte del grupo y quién administra la sala.</p>
+          <h2 className="font-serif font-semibold text-lg" style={{ color: '#00132a' }}>Miembros del grupo</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#73777f' }}>Consulta quiénes forman parte del grupo y quién administra la sala.</p>
         </div>
 
         {members.length > 0 ? (
@@ -416,8 +439,8 @@ export function GroupDetailPage() {
       {pendingRequests.length > 0 ? (
         <Card className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-ink-900">Solicitudes Pendientes</h2>
-            <p className="text-sm text-ink-500">Revisa y decide si deseas aceptar o rechazar a cada solicitante.</p>
+            <h2 className="font-serif font-semibold text-lg" style={{ color: '#00132a' }}>Solicitudes Pendientes</h2>
+            <p className="text-sm mt-0.5" style={{ color: '#73777f' }}>Revisa y decide si deseas aceptar o rechazar a cada solicitante.</p>
           </div>
 
           {actionError ? <p className="text-sm font-medium text-red-600">{actionError}</p> : null}
@@ -514,11 +537,13 @@ export function GroupDetailPage() {
                     <div
                       key={member.id}
                       onClick={() => setSelectedNewAdmin(member.id)}
-                      className={`flex items-center gap-3 rounded-md border-2 p-3 cursor-pointer transition-colors ${
-                        isSelected
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-ink-200 bg-white hover:border-ink-300'
-                      }`}
+                      style={{
+                      border: `2px solid ${isSelected ? '#D4AF37' : '#E9ECEF'}`,
+                      background: isSelected ? '#fffbe6' : '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    className="flex items-center gap-3 rounded-xl p-3"
                     >
                       <div className="h-8 w-8 rounded-full bg-ink-200 flex items-center justify-center text-xs font-semibold text-ink-700 flex-shrink-0">
                         {member.fullName.charAt(0).toUpperCase()}
@@ -529,7 +554,7 @@ export function GroupDetailPage() {
                       </div>
                       <div className="h-4 w-4 rounded border-2 border-ink-300 flex items-center justify-center flex-shrink-0">
                         {isSelected ? (
-                          <div className="h-2 w-2 rounded-full bg-emerald-600" />
+                          <div className="h-2 w-2 rounded-full" style={{ background: '#D4AF37' }} />
                         ) : null}
                       </div>
                     </div>
@@ -576,11 +601,11 @@ export function GroupDetailPage() {
 
           {actionError ? <p className="text-sm font-medium text-red-600">{actionError}</p> : null}
 
-          <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
-            <p className="text-sm font-medium text-blue-900">
+          <div className="rounded-xl p-3" style={{ background: '#d3e3ff', border: '1px solid #aac8f6' }}>
+            <p className="text-sm font-medium" style={{ color: '#001c39' }}>
               {transferCandidateName} está dejando el grupo
             </p>
-            <p className="text-xs text-blue-700 mt-1">
+            <p className="text-xs mt-1" style={{ color: '#29486e' }}>
               Como nuevo administrador, serás responsable de gestionar solicitudes y miembros.
             </p>
           </div>

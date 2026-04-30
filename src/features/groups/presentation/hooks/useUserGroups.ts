@@ -3,12 +3,17 @@ import { io, type Socket } from 'socket.io-client';
 import { useAuthStore } from '@shared/store/authStore';
 import type { StudyGroup } from '../../domain/groups';
 import { groupsHttpService } from '../../infrastructure/groupsHttpService';
-import { subjectsHttpService } from '../../infrastructure/subjectsHttpService';
 
 interface StudyGroupRealtimePayload {
   groupId: string;
   members?: unknown[];
   pendingRequests?: unknown[];
+}
+
+interface AdminTransferRequestedPayload {
+  groupId: string;
+  fromUserId: string;
+  toUserId: string;
 }
 
 const realtimeSocketUrl = import.meta.env.VITE_BACKEND_PUBLIC_URL || 'http://localhost:3000';
@@ -32,6 +37,11 @@ const toUserIds = (value: unknown): string[] => {
     .filter((id) => id.length > 0);
 };
 
+interface UseUserGroupsOptions {
+  /** Called when the current user is selected as a new admin candidate. */
+  onAdminTransferRequested?: (payload: AdminTransferRequestedPayload) => void;
+}
+
 interface UseUserGroupsReturn {
   adminGroups: StudyGroup[];
   participantGroups: StudyGroup[];
@@ -40,32 +50,29 @@ interface UseUserGroupsReturn {
   reload: () => Promise<void>;
 }
 
-export const useUserGroups = (): UseUserGroupsReturn => {
+export const useUserGroups = (options: UseUserGroupsOptions = {}): UseUserGroupsReturn => {
+  const { onAdminTransferRequested } = options;
   const currentUserId = useAuthStore((state) => state.userId);
   const token = useAuthStore((state) => state.token);
   const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const groupsRef = useRef<StudyGroup[]>([]);
-  const subjectsMapRef = useRef<Map<string, string>>(new Map());
   const socketRef = useRef<Socket | null>(null);
+  // Keep callback in a ref so the socket effect closure stays stable
+  const onAdminTransferRequestedRef = useRef(onAdminTransferRequested);
 
-  const enrichGroupWithSubject = useCallback((group: StudyGroup): StudyGroup => {
-    if (group.subject?.name) return group;
+  // Keep callback ref in sync
+  useEffect(() => { onAdminTransferRequestedRef.current = onAdminTransferRequested; }, [onAdminTransferRequested]);
 
-    const normalizedSubjectId = String(group.subject_id || '').trim();
-    if (!normalizedSubjectId) return group;
-
-    const resolvedSubjectName = subjectsMapRef.current.get(normalizedSubjectId);
-    if (!resolvedSubjectName) return group;
-
-    return {
-      ...group,
-      subject: {
-        id: normalizedSubjectId,
-        name: resolvedSubjectName,
-      },
-    };
+  /**
+   * Used only in the realtime update handler to preserve the subject when
+   * merging a live getGroup() response that may not include subject.
+   */
+  const preserveSubject = useCallback((incoming: StudyGroup, existing: StudyGroup): StudyGroup => {
+    if (incoming.subject?.name) return incoming;
+    if (existing.subject?.name) return { ...incoming, subject: existing.subject };
+    return incoming;
   }, []);
 
   useEffect(() => {
@@ -85,38 +92,10 @@ export const useUserGroups = (): UseUserGroupsReturn => {
       return;
     }
 
-    const detailedGroups = await Promise.all(
-      response.data.map(async (group) => {
-        const detailResponse = await groupsHttpService.getGroup(group.id, token);
-
-        if (!detailResponse.success || !detailResponse.data) {
-          return group;
-        }
-
-        return {
-          ...group,
-          ...detailResponse.data,
-          // Preserve list-specific permission flags from /my-groups.
-          is_admin: group.is_admin,
-          is_member: group.is_member,
-        };
-      }),
-    );
-
-    const subjectsResponse = await subjectsHttpService.getUserSubjects(token);
-    const nextSubjectsMap = new Map<string, string>();
-    for (const subject of subjectsResponse.data ?? []) {
-      const normalizedId = String(subject.id).trim();
-      if (!normalizedId || !subject.name) continue;
-      nextSubjectsMap.set(normalizedId, subject.name);
-    }
-    subjectsMapRef.current = nextSubjectsMap;
-
-    const enrichedGroups = detailedGroups.map(enrichGroupWithSubject);
-
-    setGroups(enrichedGroups);
+    // /my-groups already returns subject, members, is_admin, is_member — no extra calls needed.
+    setGroups(response.data);
     setLoading(false);
-  }, [enrichGroupWithSubject, token]);
+  }, [token]);
 
   useEffect(() => {
     void reload();
@@ -163,7 +142,7 @@ export const useUserGroups = (): UseUserGroupsReturn => {
         }),
       );
 
-      // Re-sync with backend detail so cards also reflect latest subject/name/description if changed.
+      // Re-sync with backend detail so cards also reflect latest data if changed.
       void (async () => {
         const detailResponse = await groupsHttpService.getGroup(payload.groupId, token);
         if (!detailResponse.success || !detailResponse.data) return;
@@ -172,20 +151,25 @@ export const useUserGroups = (): UseUserGroupsReturn => {
         setGroups((currentGroups) =>
           currentGroups.map((group) => {
             if (group.id !== payload.groupId) return group;
-
-            return enrichGroupWithSubject({
-              ...group,
-              ...detailGroup,
-              subject: detailGroup.subject ?? group.subject,
-              is_admin: group.is_admin,
-            });
+            // Preserve subject from existing group if detail response doesn't include it
+            return preserveSubject(
+              { ...group, ...detailGroup, is_admin: group.is_admin, is_member: group.is_member },
+              group,
+            );
           }),
         );
       })();
     };
 
+    const handleAdminTransferRequested = (payload: AdminTransferRequestedPayload) => {
+      // Only notify if this socket's user is the intended recipient
+      if (payload.toUserId !== currentUserId) return;
+      onAdminTransferRequestedRef.current?.(payload);
+    };
+
     socket.on('connect', joinKnownGroups);
     socket.on('study-group:updated', handleStudyGroupUpdated);
+    socket.on('admin_transfer_requested', handleAdminTransferRequested);
 
     if (socket.connected) {
       joinKnownGroups();
@@ -197,10 +181,11 @@ export const useUserGroups = (): UseUserGroupsReturn => {
       }
       socket.off('connect', joinKnownGroups);
       socket.off('study-group:updated', handleStudyGroupUpdated);
+      socket.off('admin_transfer_requested', handleAdminTransferRequested);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, enrichGroupWithSubject, token]);
+  }, [currentUserId, preserveSubject, token]);
 
   useEffect(() => {
     const socket = socketRef.current;

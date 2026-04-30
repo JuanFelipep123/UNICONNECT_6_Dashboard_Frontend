@@ -15,28 +15,51 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        className="fixed inset-0 z-40 transition-opacity"
+        style={{ background: 'rgba(0,0,0,0.45)' }}
         onClick={onClose}
         role="presentation"
       />
 
-      {/* Modal Container */}
+      {/* Modal container */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="w-full max-w-md rounded-lg bg-white shadow-xl animate-in fade-in zoom-in-95 duration-200"
+          className="w-full max-w-md rounded-xl bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          style={{ border: '1px solid #E9ECEF' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="border-b border-ink-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
+          <div
+            className="flex items-center justify-between px-6 py-4"
+            style={{ borderBottom: '1px solid #f0eded' }}
+          >
+            <h2 className="text-lg font-semibold font-serif" style={{ color: '#00132a' }}>
+              {title}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1 transition-colors"
+              style={{ color: '#73777f' }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = '#f0eded';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                close
+              </span>
+            </button>
           </div>
 
           {/* Content */}
-          <div className="px-6 py-4">{children}</div>
+          <div className="px-6 py-5">{children}</div>
 
           {/* Footer */}
           {footer && (
-            <div className="border-t border-ink-200 px-6 py-4">
+            <div className="px-6 pb-5 pt-2" style={{ borderTop: '1px solid #f0eded' }}>
               {footer}
             </div>
           )}

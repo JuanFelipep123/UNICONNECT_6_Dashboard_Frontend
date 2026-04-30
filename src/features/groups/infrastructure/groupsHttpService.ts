@@ -240,7 +240,7 @@ const normalizeGroup = (raw: unknown): StudyGroup => {
       toNumberSafe(rawGroup.member_count) ??
       toNumberSafe(rawGroup.memberCount) ??
       toNumberSafe(rawGroup.members_count) ??
-      (members.length > 0 ? members.length : undefined),
+      members.length,
     members,
     pendingRequests,
     is_member: toBooleanSafe(rawGroup.is_member ?? rawGroup.isMember),
@@ -266,7 +266,9 @@ export const groupsHttpService = {
         return { success: false, error: getErrorMessage(json, response.status) };
       }
 
-      return { success: true, data: json as CreateGroupResponse };
+      // Backend wraps the created group inside { data: { ... } } via sendServiceResult
+      const unwrapped = extractGroupPayload(json) as CreateGroupResponse;
+      return { success: true, data: unwrapped };
     } catch {
       return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
     }
@@ -391,6 +393,7 @@ export const groupsHttpService = {
     }
   },
 
+
   async leaveGroup(groupId: string, token?: string | null): Promise<ApiResponse<{ success: boolean }>> {
     try {
       const response = await fetch(`${GROUPS_ENDPOINT}/${groupId}/leave`, {
@@ -409,9 +412,7 @@ export const groupsHttpService = {
             ? 'El administrador no puede abandonar el grupo sin transferir la administración.'
             : response.status === 404
               ? 'No se encontró el grupo.'
-              : response.status === 409
-                ? 'Conflicto al intentar abandonar el grupo.'
-                : getErrorMessage(json, response.status);
+              : getErrorMessage(json, response.status); // 409 y otros: usa el mensaje real del backend
         return { success: false, error: errorMessage };
       }
 

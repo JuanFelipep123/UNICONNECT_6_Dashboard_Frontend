@@ -13,15 +13,18 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+const toastColors: Record<ToastType, { bg: string; border: string; icon: string }> = {
+  success: { bg: '#00284D', border: '#426088', icon: 'check_circle' },
+  error:   { bg: '#ba1a1a', border: '#93000a', icon: 'error'         },
+  info:    { bg: '#1b1c1c', border: '#43474e', icon: 'info'          },
+};
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const push = useCallback((message: string, type: ToastType = 'info') => {
     const id = String(Date.now()) + Math.random().toString(36).slice(2, 8);
-    const item: ToastItem = { id, message, type };
-    setToasts((t) => [item, ...t]);
-
-    // auto remove
+    setToasts((t) => [{ id, message, type }, ...t]);
     setTimeout(() => {
       setToasts((t) => t.filter((x) => x.id !== id));
     }, 4000);
@@ -32,17 +35,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
 
       {/* Toast container */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-xs">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`rounded-md p-3 shadow-md text-sm break-words overflow-hidden animate-in fade-in slide-in-from-top-3 duration-200 ${
-              t.type === 'success' ? 'bg-emerald-600 text-white' : t.type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'
-            }`}
-          >
-            {t.message}
-          </div>
-        ))}
+      <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        {toasts.map((t) => {
+          const colors = toastColors[t.type];
+          return (
+            <div
+              key={t.id}
+              className="flex items-start gap-3 rounded-xl px-4 py-3 shadow-lg text-sm text-white pointer-events-auto animate-in fade-in slide-in-from-top-3 duration-200"
+              style={{
+                background: colors.bg,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <span
+                className="material-symbols-outlined flex-shrink-0"
+                style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}
+              >
+                {colors.icon}
+              </span>
+              <span className="leading-snug">{t.message}</span>
+            </div>
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );
