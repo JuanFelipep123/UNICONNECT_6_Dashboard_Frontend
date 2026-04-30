@@ -1,5 +1,9 @@
 import { chatFetch } from './chatHttpClient';
-import type { ChatApiResponse, WallAttachment, WallInboxItem, WallPost } from '../domain/wall';
+import { useAuthStore } from '@shared/store/authStore';
+import { API_BASE_URL } from '@shared/services/api/apiClient';
+import type { ChatApiResponse, GroupMember, WallAttachment, WallInboxItem, WallPost } from '../domain/wall';
+
+const GROUPS_BASE = `${API_BASE_URL}/study-groups`;
 
 const safeJson = async (response: Response): Promise<unknown> => {
   try {
@@ -57,6 +61,14 @@ const normalizePost = (raw: unknown): WallPost => {
     content: toStr(r.content),
     createdAt: toStr(r.createdAt ?? r.created_at),
     attachments: Array.isArray(r.attachments) ? r.attachments.map(normalizeAttachment) : [],
+    mentions: Array.isArray(r.mentions)
+      ? r.mentions.filter((m): m is string => typeof m === 'string')
+      : [],
+    mentionedNames: Array.isArray(r.mentionedNames)
+      ? r.mentionedNames.filter((m): m is string => typeof m === 'string')
+      : Array.isArray(r.mentioned_names)
+        ? r.mentioned_names.filter((m): m is string => typeof m === 'string')
+        : [],
   };
 };
 
@@ -135,16 +147,57 @@ export const wallHttpService = {
     groupId: string,
     content: string,
     attachments: WallAttachment[] = [],
+    mentions: string[] = [],
+    mentionedNames: string[] = [],
   ): Promise<ChatApiResponse<WallPost>> {
     try {
       const response = await chatFetch(`/groups/${encodeURIComponent(groupId)}/wall`, {
         method: 'POST',
-        body: JSON.stringify({ content, attachments }),
+        body: JSON.stringify({ content, attachments, mentions, mentionedNames }),
       });
       const json = await safeJson(response);
 
       if (!response.ok) return { success: false, error: getError(json, response.status) };
-      return { success: true, data: normalizePost(json) };
+
+      const post = normalizePost(json);
+      // Preserve mentionedNames locally if the backend doesn't echo them yet
+      if (post.mentionedNames.length === 0 && mentionedNames.length > 0) {
+        post.mentionedNames = mentionedNames;
+      }
+      return { success: true, data: post };
+    } catch {
+      return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
+    }
+  },
+
+  async getGroupMembers(groupId: string): Promise<ChatApiResponse<GroupMember[]>> {
+    try {
+      const token = useAuthStore.getState().token;
+      const response = await fetch(`${GROUPS_BASE}/${encodeURIComponent(groupId)}/members`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const json = await safeJson(response);
+
+      if (!response.ok) return { success: false, error: getError(json, response.status) };
+
+      let items: unknown[] = [];
+      if (json && typeof json === 'object') {
+        const p = json as Record<string, unknown>;
+        if (Array.isArray(p.data)) items = p.data;
+        else if (Array.isArray(p.members)) items = p.members;
+      } else if (Array.isArray(json)) {
+        items = json;
+      }
+
+      const members: GroupMember[] = items
+        .filter((m): m is Record<string, unknown> => m !== null && typeof m === 'object')
+        .map((m) => ({ id: toStr(m.id), name: toStr(m.name) }))
+        .filter((m) => m.id && m.name);
+
+      return { success: true, data: members };
     } catch {
       return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
     }

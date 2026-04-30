@@ -6,6 +6,11 @@ export interface WallAttachment {
   storagePath: string;
 }
 
+export interface GroupMember {
+  id: string;
+  name: string;
+}
+
 export interface WallPost {
   id: string;
   groupId: string;
@@ -15,6 +20,8 @@ export interface WallPost {
   content: string;
   createdAt: string;
   attachments: WallAttachment[];
+  mentions: string[];
+  mentionedNames: string[];
 }
 
 export interface WallInboxItem {
