@@ -1,0 +1,39 @@
+AUDITORÍA FRONTEND — Sprint 3 — Thu, Apr 30, 2026 11:23:45 AM
+Directorio: /c/Users/juan felipe pelaez/uniconnect-web
+============================================
+
+=== Estructura del proyecto ===
+PASS | Vite configurado
+PASS | TypeScript configurado
+PASS | package.json presente
+
+=== A — Build y TypeScript ===
+PASS | TypeScript sin errores
+  Errores TS: 0
+PASS | Build de producción exitoso
+PASS | strict: true en tsconfig
+
+=== B — Patrón Decorator (HOC) ===
+PASS | Decorator/HOC detectado en frontend
+WARN | No se detectó Decorator en módulo de perfil (US-07)
+WARN | No se detectó Decorator en módulo de chat (US-06)
+
+=== C — Observer (WebSocket / EventBus) ===
+PASS | Observer/suscripción en tiempo real detectado
+PASS | Cleanup en useEffect detectado (4 instancias) — evita memory leaks
+
+=== D — Test E2E ===
+PASS | Playwright configurado (playwright.config.ts)
+PASS | Tests E2E pasan
+PASS | 1 archivos E2E encontrados
+WARN | URL de frontend no proporcionada — ejecuta: bash run-audit-frontend.sh https://tu-app.fly.dev
+
+=== E — Calidad TypeScript ===
+  Usos de 'any': 1
+PASS | Uso de 'any' controlado (1)
+WARN | ESLint no configurado
+
+=== Resumen ===
+
+RESUMEN: PASS=13 | FAIL=0 | WARN=4
+Estimación frontend: 16 / 16
