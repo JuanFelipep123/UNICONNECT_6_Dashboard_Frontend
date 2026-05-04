@@ -1,0 +1,40 @@
+# fly.toml - Configuración de despliegue para Fly.io
+# Generado para uniconnect-web (Vite + React SPA)
+
+app = "uniconnect-web"
+primary_region = "dfw"
+
+[build]
+  # Las variables VITE_* se pasan como build args en tiempo de compilación
+  # ya que Vite las inyecta estáticamente en el bundle.
+  # Se configuran en: fly secrets set o en el dashboard de Fly.io
+  [build.args]
+    VITE_API_BASE_URL            = ""
+    VITE_BACKEND_PUBLIC_URL      = ""
+    VITE_AUTH0_DOMAIN            = ""
+    VITE_AUTH0_CLIENT_ID         = ""
+    VITE_AUTH0_AUDIENCE          = ""
+    VITE_AUTH0_CONNECTION        = ""
+    VITE_AUTH_SYNC_URL           = ""
+    VITE_AUTH_SESSION_URL        = ""
+    VITE_AUTH0_REDIRECT_URI      = ""
+    VITE_CHAT_SERVICE_URL        = ""
+    VITE_SUPABASE_URL            = ""
+    VITE_SUPABASE_ANON_KEY       = ""
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
