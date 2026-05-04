@@ -12,7 +12,7 @@ RUN npm ci
 # Copiar todo el código fuente
 COPY . .
 
-# Las variables VITE_* se inyectan en build-time (Criterio 4)
+# Las variables VITE_* se inyectan en build-time
 # No en runtime — Vite las embebe estáticamente en el bundle.
 ARG VITE_API_BASE_URL
 ARG VITE_BACKEND_PUBLIC_URL
@@ -48,13 +48,13 @@ RUN npm run build
 # ──────────────────────────────────────────────
 FROM nginx:alpine AS runner
 
-# Configuración de Nginx: SPA fallback a index.html (Criterio 3)
+# Configuración de Nginx: SPA fallback a index.html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copiar el bundle generado por el stage builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# El contenedor responde en el puerto 80 (Criterio 2)
+# El contenedor responde en el puerto 80
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
