@@ -7,6 +7,7 @@ import { Modal } from '@shared/components/ui/Modal';
 import { useToast } from '@shared/components/ui/ToastProvider';
 import { GroupCard } from '../components/GroupCard';
 import { CreateGroupForm } from '../components/CreateGroupForm';
+import { GroupSearchBar } from '../components/GroupSearchBar';
 import { useUserGroups } from '../hooks/useUserGroups';
 import { useCreateStudyGroup } from '../hooks/useCreateStudyGroup';
 import { useUserSubjects } from '../hooks/useUserSubjects';
@@ -156,6 +157,9 @@ export function GroupsListPage() {
         )}
       </section>
 
+      {/* ── Search groups by subject ──────────────────────────── */}
+      <GroupSearchBar />
+
       {/* ── Participant groups section ───────────────────────────── */}
       <section>
         <div className="flex items-center gap-3 mb-5">
@@ -196,6 +200,7 @@ export function GroupsListPage() {
           </div>
         )}
       </section>
+
 
       {/* ── Create group modal ───────────────────────────────────── */}
       <Modal isOpen={showCreateModal} onClose={closeModal} title="Crear grupo de estudio">
