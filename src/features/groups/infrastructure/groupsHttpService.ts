@@ -492,4 +492,63 @@ export const groupsHttpService = {
       return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
     }
   },
+
+  async getAvailableGroupsBySubject(subjectId: string, token?: string | null): Promise<ApiResponse<StudyGroup[]>> {
+    try {
+      const response = await fetch(`${GROUPS_ENDPOINT}/by-subject/${subjectId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const json = await readJson(response);
+
+      if (!response.ok) {
+        return { success: false, error: getErrorMessage(json, response.status) };
+      }
+
+      let groupsArrayRaw: unknown[] = [];
+      if (Array.isArray(json)) {
+        groupsArrayRaw = json;
+      } else if (json && typeof json === 'object') {
+        const payload = json as Record<string, unknown>;
+        if (Array.isArray(payload.data)) groupsArrayRaw = payload.data;
+        else if (Array.isArray(payload.groups)) groupsArrayRaw = payload.groups;
+      }
+
+      return { success: true, data: groupsArrayRaw.map(normalizeGroup) };
+    } catch {
+      return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
+    }
+  },
+
+  async joinGroup(groupId: string, token?: string | null): Promise<ApiResponse<StudyGroup>> {
+    try {
+      const response = await fetch(`${GROUPS_ENDPOINT}/${groupId}/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const json = await readJson(response);
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          return { success: false, error: 'No puedes unirte a este grupo porque no estás matriculado en la materia.' };
+        }
+        if (response.status === 409) {
+          return { success: false, error: 'Ya enviaste una solicitud de ingreso a este grupo.' };
+        }
+        return { success: false, error: getErrorMessage(json, response.status) };
+      }
+
+      return { success: true, data: normalizeGroup(extractGroupPayload(json)) };
+    } catch {
+      return { success: false, error: 'Error de conexión. Verifica tu conexión a internet.' };
+    }
+  },
 };

@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppRouter } from './routes';
 import { useAuthStore } from '@shared/store/authStore';
@@ -10,20 +9,31 @@ function App() {
   const { isLoading, isAuthenticated, user, logout, getAccessTokenSilently } = useAuth0();
   const setSession = useAuthStore((state) => state.setSession);
   const setHydrated = useAuthStore((state) => state.setHydrated);
-  const navigate = useNavigate();
+
+  // Prevent running the sync more than once per session
+  const hasSyncedRef = useRef(false);
 
   useEffect(() => {
+    // Still loading Auth0 state – do nothing
     if (isLoading) return;
 
+    // Not authenticated → just mark hydration done (no backend sync needed)
     if (!isAuthenticated) {
-      setHydrated();
+      if (!hasSyncedRef.current) {
+        setHydrated();
+      }
       return;
     }
 
+    // Already synced in this session – don't re-run
+    if (hasSyncedRef.current) return;
+    hasSyncedRef.current = true;
+
     const hydrate = async () => {
+      // Validate institutional email
       if (!user?.email || !isValidInstitutionalEmail(user.email)) {
         await logout({ openUrl: false });
-        navigate('/login?error=email_not_allowed', { replace: true });
+        // navigation handled by router guard after clearSession
         return;
       }
 
@@ -33,17 +43,27 @@ function App() {
         try {
           const accessToken = await getAccessTokenSilently();
           const session = await syncUserWithBackend(config.authSyncUrl, accessToken);
-          setSession({ userId: session.userId, token: session.token, needsOnboarding: session.needsOnboarding });
+          // Set session WITH the real needsOnboarding value from backend.
+          // Router guards (ProtectedLayout / OnboardingLayout) will handle
+          // the redirect once isHydrating becomes false.
+          setSession({
+            userId: session.userId,
+            token: session.token,
+            needsOnboarding: session.needsOnboarding,
+          });
         } catch {
-          setSession({ userId: user.sub!, token: null });
+          // Sync failed: mark hydrated but do NOT reset needsOnboarding.
+          // User lands on /groups; they can retry if needed.
+          setSession({ userId: user.sub!, token: null, needsOnboarding: false });
         }
       } else {
-        setSession({ userId: user.sub!, token: null });
+        // No sync URL configured – treat as no onboarding needed
+        setSession({ userId: user.sub!, token: null, needsOnboarding: false });
       }
     };
 
     void hydrate();
-  }, [isLoading, isAuthenticated, user, logout, navigate, setSession, setHydrated, getAccessTokenSilently]);
+  }, [isLoading, isAuthenticated, user, logout, setSession, setHydrated, getAccessTokenSilently]);
 
   return <AppRouter />;
 }
