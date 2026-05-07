@@ -9,6 +9,8 @@ import { GroupDetailPage } from '@features/groups/presentation/pages/GroupDetail
 import { CreateGroupPage } from '@features/groups/presentation/pages/CreateGroupPage';
 import { WallInboxPage, WallHistoryPage } from '@features/chat';
 
+import { ProfilePage } from '@features/profile/presentation/pages/ProfilePage';
+
 function ProtectedLayout() {
   const { isLoading: auth0Loading, isAuthenticated } = useAuth0();
   const isHydrating = useAuthStore((state) => state.isHydrating);
@@ -41,6 +43,7 @@ export function AppRouter() {
         <Route path="/groups/:groupId" element={<GroupDetailPage />} />
         <Route path="/chat" element={<WallInboxPage />} />
         <Route path="/chat/groups/:groupId/wall" element={<WallHistoryPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/groups" replace />} />
