@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useAuthStore } from '@shared/store/authStore';
 import { NotificationBell } from './NotificationBell';
+import { HeaderProfileAvatar } from './HeaderProfileAvatar';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -10,8 +11,15 @@ interface DashboardLayoutProps {
 const navItems = [
   { to: '/groups', label: 'Grupos', icon: 'group' },
   { to: '/chat', label: 'Mensajes', icon: 'chat' },
-  { to: '/', label: 'Inicio', icon: 'home' },
+  { to: '/profile', label: 'Perfil', icon: 'person' },
 ];
+
+const getNavLabel = (pathname: string) => {
+  const match = navItems.find(
+    (n) => pathname === n.to || pathname.startsWith(`${n.to}/`)
+  );
+  return match?.label ?? 'Panel';
+};
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
@@ -133,23 +141,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               chevron_right
             </span>
             <span className="font-semibold" style={{ color: '#00284D' }}>
-              {navItems.find(
-                (n) =>
-                  location.pathname === n.to ||
-                  location.pathname.startsWith(`${n.to}/`),
-              )?.label ?? 'Panel'}
+              {getNavLabel(location.pathname)}
             </span>
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <NotificationBell />
-            <div
-              className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-              style={{ background: '#d3e3ff', color: '#001c39', letterSpacing: '0.08em' }}
-            >
-              UniConnect
-            </div>
+            <HeaderProfileAvatar />
           </div>
         </header>
 
