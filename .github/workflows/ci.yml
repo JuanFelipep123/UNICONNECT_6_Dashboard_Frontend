@@ -1,0 +1,42 @@
+name: CI — Unit Tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# Cancela runs anteriores del mismo PR cuando llega un nuevo push
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-dashboard:
+    name: Unit Tests (Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      # Copia .env.example → .env para que Vite resuelva import.meta.env.*
+      # Los tests son unitarios puros (jsdom, sin conexiones reales),
+      # así que valores dummy son suficientes.
+      - name: Create .env from example
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build (tsc + vite)
+        run: npm run build
