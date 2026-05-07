@@ -1,4 +1,4 @@
-name: CI — Unit Tests
+name: CI/CD — Uniconnect Web
 
 on:
   push:
@@ -12,8 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Job 1: Tests + Build ────────────────────────────────────────
   test-dashboard:
-    name: Unit Tests (Vitest)
+    name: Unit Tests + Build (Vitest)
     runs-on: ubuntu-latest
 
     steps:
@@ -40,3 +41,35 @@ jobs:
 
       - name: Build (tsc + vite)
         run: npm run build
+
+  # ── Job 2: Deploy a Fly.io (solo en push a main) ───────────────
+  deploy:
+    name: Deploy a Fly.io
+    runs-on: ubuntu-latest
+    needs: test-dashboard
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy a Fly.io
+        run: |
+          flyctl deploy --remote-only \
+            --build-arg VITE_API_BASE_URL="${{ secrets.VITE_API_BASE_URL }}" \
+            --build-arg VITE_BACKEND_PUBLIC_URL="${{ secrets.VITE_BACKEND_PUBLIC_URL }}" \
+            --build-arg VITE_AUTH0_DOMAIN="${{ secrets.VITE_AUTH0_DOMAIN }}" \
+            --build-arg VITE_AUTH0_CLIENT_ID="${{ secrets.VITE_AUTH0_CLIENT_ID }}" \
+            --build-arg VITE_AUTH0_AUDIENCE="${{ secrets.VITE_AUTH0_AUDIENCE }}" \
+            --build-arg VITE_AUTH0_CONNECTION="${{ secrets.VITE_AUTH0_CONNECTION }}" \
+            --build-arg VITE_AUTH_SYNC_URL="${{ secrets.VITE_AUTH_SYNC_URL }}" \
+            --build-arg VITE_AUTH_SESSION_URL="${{ secrets.VITE_AUTH_SESSION_URL }}" \
+            --build-arg VITE_AUTH0_REDIRECT_URI="${{ secrets.VITE_AUTH0_REDIRECT_URI }}" \
+            --build-arg VITE_CHAT_SERVICE_URL="${{ secrets.VITE_CHAT_SERVICE_URL }}" \
+            --build-arg VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
+            --build-arg VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
