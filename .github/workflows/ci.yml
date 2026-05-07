@@ -2,9 +2,9 @@ name: CI/CD — Uniconnect Web
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
 
 # Cancela runs anteriores del mismo PR cuando llega un nuevo push
 concurrency:
